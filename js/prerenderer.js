@@ -47,16 +47,11 @@ function getSnapchatIcon(conversation) {
     return `${ASSETS_PATH}/icons16x17/${kind}-${status}.svg`;
 }
 
-function formatTimeAgo(timestamp) {
-    const now = new Date();
+function formatMilitaryTime(timestamp) {
     const date = new Date(timestamp);
-    const seconds = Math.floor((now - date) / 1000);
-    
-    if (seconds < 60) return 'Just now';
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
-    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d`;
-    return `${Math.floor(seconds / 604800)}w`;
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
 }
 
 function createChatItem(conversationId, conversation, globalData) {
@@ -97,7 +92,7 @@ function createChatItem(conversationId, conversation, globalData) {
     }
     
     const iconUrl = getSnapchatIcon(conversation);
-    const timeAgo = formatTimeAgo(conversation.latest_timestamp);
+    const militaryTime = formatMilitaryTime(conversation.latest_timestamp);
     
     return `
         <div class="chat-item" data-conversation="${conversationId}">
@@ -111,7 +106,7 @@ function createChatItem(conversationId, conversation, globalData) {
                         <img src="${iconUrl}" class="status-icon" alt="status">
                         <span class="status-text">${conversation.is_sender ? 'Opened' : 'Received'}</span>
                         <span class="status-separator">·</span>
-                        <span class="status-time">${timeAgo}</span>
+                        <span class="status-time">${militaryTime}</span>
                     </div>
                 </div>
             </div>
@@ -152,7 +147,7 @@ function generateDayHTML(dayData, globalData, currentDay, allDays) {
         day: 'numeric' 
     });
     
-    // Generate chat items
+    // Generate chat items sorted by timestamp (most recent first)
     const chatItems = Object.entries(dayData.conversations || {})
         .sort((a, b) => b[1].latest_timestamp - a[1].latest_timestamp)
         .map(([id, conv]) => createChatItem(id, conv, globalData))
