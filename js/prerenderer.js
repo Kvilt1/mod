@@ -340,13 +340,13 @@ function createMessageItem(message, globalData) {
                 messageContent = `
                     <div class="voice-memo-component-${uniqueId}" data-audio-path="${audioPath}" style="display: flex; align-items: center; gap: 12px; width: 438px; padding: 8px; background: white; border: 1px solid #E1E1E1; border-radius: 7px;">
                         <!-- Play/Pause Button -->
-                        <button class="play-pause-btn-${uniqueId}" style="display: flex; height: 32px; width: 32px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 50%; background: transparent; border: none; cursor: pointer;">
+                        <button class="play-pause-btn-${uniqueId}" style="display: flex; height: 40px; width: 40px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 50%; background: transparent; border: none; cursor: pointer;">
                             <!-- Play Icon -->
-                            <svg class="play-icon-${uniqueId}" style="height: 24px; width: 24px;" viewBox="0 0 24 24" fill="none">
+                            <svg class="play-icon-${uniqueId}" style="height: 28px; width: 28px;" viewBox="0 0 24 24" fill="none">
                                 <path d="M6.28286 18.0425C5.03541 18.6662 4 17.7401 4 16.3113V7.68866C4 6.25987 5.03541 5.33375 6.28286 5.95747L15.3431 10.2688C16.5996 10.897 16.5996 12.103 15.3431 12.7312L6.28286 18.0425Z" fill="#FF1D1D"/>
                             </svg>
                             <!-- Pause Icon -->
-                            <svg class="pause-icon-${uniqueId}" style="height: 24px; width: 24px; display: none;" viewBox="0 0 24 24" fill="none">
+                            <svg class="pause-icon-${uniqueId}" style="height: 28px; width: 28px; display: none;" viewBox="0 0 24 24" fill="none">
                                 <rect x="6" y="5" width="4" height="14" rx="2" fill="#FF1D1D"/>
                                 <rect x="14" y="5" width="4" height="14" rx="2" fill="#FF1D1D"/>
                             </svg>
