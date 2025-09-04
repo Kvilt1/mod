@@ -1,5 +1,9 @@
 // Helper Functions Module
 const helpers = (function() {
+    // Cache for deterministic user colors
+    const userColorCache = {};
+    const SIGNATURE_RED = '#FF453A'; // Snapchat signature red for "Me"
+    
     // Get icon URL based on message type and status
     function getIconUrl(messageType, status) {
         const iconMap = {
@@ -32,15 +36,14 @@ const helpers = (function() {
         return `assets/icons16x17/${kind}-${status}.svg`;
     }
 
-    // Get media icon URL for conversation view
-    function getMediaIconUrl(type, isSender) {
-        const iconMap = {
-            'snap-true': 'assets/icons14x/snap-opened.svg',
-            'snap-false': 'assets/icons14x/snap-received.svg',
-            'video-true': 'assets/icons14x/video-opened.svg',
-            'video-false': 'assets/icons14x/video-received.svg'
-        };
-        return iconMap[`${type}-${isSender}`] || 'assets/icons14x/snap-received.svg';
+    // Get media icon URL for conversation view (14x icons)
+    function getMediaIconUrl(mediaType, isSender) {
+        if (mediaType === 'VIDEO' || mediaType === 'video') {
+            return isSender ? 'assets/icons14x/video-opened.svg' : 'assets/icons14x/video-received.svg';
+        } else {
+            // Default to snap icon for IMAGE and other media types
+            return isSender ? 'assets/icons14x/snap-opened.svg' : 'assets/icons14x/snap-received.svg';
+        }
     }
 
     // Get avatar color based on name
@@ -54,22 +57,101 @@ const helpers = (function() {
         return colors[hash % colors.length];
     }
 
+    // Generate deterministic user color from username
+    function generateUserColor(username) {
+        // If already cached, return it
+        if (userColorCache[username]) {
+            return userColorCache[username];
+        }
+        
+        // Hash the username to get a deterministic number
+        let hash = 0;
+        for (let i = 0; i < username.length; i++) {
+            hash = ((hash << 5) - hash) + username.charCodeAt(i);
+            hash = hash & hash; // Convert to 32bit integer
+        }
+        
+        // Snapchat accent colors palette (warm, saturated tones)
+        // Using HSL for consistent saturation and lightness
+        const hueRanges = [
+            [0, 20],    // Reds
+            [20, 45],   // Oranges
+            [45, 65],   // Yellows
+            [160, 200], // Cyans
+            [200, 260], // Blues
+            [260, 290], // Purples
+            [290, 330], // Magentas
+            [330, 360]  // Pink-reds
+        ];
+        
+        // Pick a hue range based on hash
+        const rangeIndex = Math.abs(hash) % hueRanges.length;
+        const [minHue, maxHue] = hueRanges[rangeIndex];
+        
+        // Generate hue within the selected range
+        const hue = minHue + (Math.abs(hash * 7919) % (maxHue - minHue));
+        
+        // Fixed saturation and lightness for Snapchat-style colors
+        const saturation = 85; // High saturation for vibrant colors
+        const lightness = 55;  // Medium lightness for good contrast
+        
+        // Convert HSL to hex
+        const color = hslToHex(hue, saturation, lightness);
+        
+        // Cache the color
+        userColorCache[username] = color;
+        return color;
+    }
+
+    // Convert HSL to Hex
+    function hslToHex(h, s, l) {
+        s = s / 100;
+        l = l / 100;
+        
+        const c = (1 - Math.abs(2 * l - 1)) * s;
+        const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+        const m = l - c / 2;
+        
+        let r, g, b;
+        
+        if (h >= 0 && h < 60) {
+            [r, g, b] = [c, x, 0];
+        } else if (h >= 60 && h < 120) {
+            [r, g, b] = [x, c, 0];
+        } else if (h >= 120 && h < 180) {
+            [r, g, b] = [0, c, x];
+        } else if (h >= 180 && h < 240) {
+            [r, g, b] = [0, x, c];
+        } else if (h >= 240 && h < 300) {
+            [r, g, b] = [x, 0, c];
+        } else {
+            [r, g, b] = [c, 0, x];
+        }
+        
+        r = Math.round((r + m) * 255).toString(16).padStart(2, '0');
+        g = Math.round((g + m) * 255).toString(16).padStart(2, '0');
+        b = Math.round((b + m) * 255).toString(16).padStart(2, '0');
+        
+        return `#${r}${g}${b}`;
+    }
+
     // Get user color for messages
-    function getUserColor(chatId, isSender) {
-        if (isSender) return '#007AFF';
-        const colors = ['#FF3B30', '#34C759', '#FF9500', '#AF52DE', '#5AC8FA', '#FFD60A'];
-        const hash = chatId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-        return colors[hash % colors.length];
+    function getUserColor(username, isSender) {
+        if (isSender) {
+            return SIGNATURE_RED;
+        }
+        return generateUserColor(username);
     }
 
     // Get username for messages
-    function getUsername(chatName, isSender) {
-        return isSender ? 'Me' : chatName.split(' ')[0];
+    function getUsername(username, isSender) {
+        return isSender ? 'Me' : username;
     }
 
-    // Get message status text
+    // Get message status text for snaps
     function getMessageStatus(isSender, type) {
-        return isSender ? 'Opened' : 'Received';
+        // Always return "Opened" for snaps per requirements
+        return 'Opened';
     }
 
     // Format time ago
@@ -181,6 +263,8 @@ const helpers = (function() {
         formatDuration,
         formatTime,
         createDefaultAvatar,
-        createBitmojiPlaceholder
+        createBitmojiPlaceholder,
+        generateUserColor,
+        SIGNATURE_RED
     };
-})();
+})();;

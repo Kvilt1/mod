@@ -1,6 +1,34 @@
 // Conversation Component Module
 const ConversationComponent = (function() {
-    function createHeader(chat, onBack, onGalleryClick, isGalleryActive) {
+    function createHeader(chat, currentDate, availableDates, onBack, onGalleryClick, onDateChange, isGalleryActive) {
+        // Create date navigator HTML
+        let dateNavigatorHtml = '';
+        if (currentDate && availableDates && availableDates.length > 0) {
+            const currentIndex = availableDates.indexOf(currentDate);
+            const prevDisabled = currentIndex <= 0;
+            const nextDisabled = currentIndex >= availableDates.length - 1;
+            
+            dateNavigatorHtml = `
+                <div class="date-navigator">
+                    <button class="date-nav-arrow date-nav-prev ${prevDisabled ? 'disabled' : ''}" 
+                            ${prevDisabled ? 'disabled' : ''}
+                            onclick="conversationHandlers.handleDateChange('${prevDisabled ? '' : availableDates[currentIndex - 1]}')">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M15 18l-6-6 6-6"/>
+                        </svg>
+                    </button>
+                    <div class="date-display">${formatDisplayDate(currentDate)}</div>
+                    <button class="date-nav-arrow date-nav-next ${nextDisabled ? 'disabled' : ''}"
+                            ${nextDisabled ? 'disabled' : ''}
+                            onclick="conversationHandlers.handleDateChange('${nextDisabled ? '' : availableDates[currentIndex + 1]}')">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 18l6-6-6-6"/>
+                        </svg>
+                    </button>
+                </div>
+            `;
+        }
+        
         return `
             <div class="header-left">
                 <button class="back-button" onclick="conversationHandlers.handleBack()">
@@ -13,6 +41,9 @@ const ConversationComponent = (function() {
                 <div class="username-badge">
                     <span>${chat.name}</span>
                 </div>
+            </div>
+            <div class="header-center">
+                ${dateNavigatorHtml}
             </div>
             <div class="header-right">
                 <button class="gallery-button ${isGalleryActive ? 'active' : ''}" 
@@ -41,37 +72,74 @@ const ConversationComponent = (function() {
         `;
     }
     
-    function createMessageItem(message, senderName, senderColor, chatId) {
-        const isTextMessage = message.type === 'chat';
-        const shouldWrap = isTextMessage && message.text ? helpers.shouldWrapText(message.text) : false;
+    function formatDisplayDate(dateStr) {
+        const date = new Date(dateStr);
+        const options = { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+        };
+        return date.toLocaleDateString('en-US', options);
+    }
+    
+    function createMessageItem(message, globalUsersData) {
+        const isSnap = message.kind === 'snap';
+        const isChat = message.kind === 'chat';
+        const isSender = message.is_sender || false;
+        
+        // Get sender display name and color
+        let senderName = helpers.getUsername(message.from, isSender);
+        let senderColor = helpers.getUserColor(message.from, isSender);
+        
+        // If we have global users data, use the display name
+        if (!isSender && globalUsersData && globalUsersData.users && globalUsersData.users[message.from]) {
+            const userData = globalUsersData.users[message.from];
+            senderName = userData.display_name || message.from;
+        }
         
         let messageContent = '';
         
-        if (isTextMessage) {
-            messageContent = `
-                <div class="text-message ${shouldWrap ? 'wrapped' : ''}">
-                    ${message.text || ''}
-                </div>
-            `;
-        } else {
-            const iconUrl = helpers.getMediaIconUrl(message.type, message.isSender);
-            const status = helpers.getMessageStatus(message.isSender, message.type);
+        if (isSnap) {
+            // Handle snap messages
+            const mediaType = message.media_type || 'IMAGE';
+            const iconUrl = helpers.getMediaIconUrl(mediaType, isSender);
+            const status = 'Opened'; // Always show "Opened" for snaps
+            
             messageContent = `
                 <div class="media-message-box">
-                    <img src="${iconUrl}" alt="${message.type} ${message.isSender ? 'sent' : 'received'}" 
+                    <img src="${iconUrl}" alt="${mediaType} ${isSender ? 'sent' : 'received'}" 
                          class="media-message-icon">
                     <span class="media-message-text">${status}</span>
                 </div>
             `;
+        } else if (isChat) {
+            // Handle chat messages
+            if (message.media_type === 'TEXT' && message.text) {
+                const shouldWrap = helpers.shouldWrapText(message.text);
+                messageContent = `
+                    <div class="text-message ${shouldWrap ? 'wrapped' : ''}">
+                        ${message.text}
+                    </div>
+                `;
+            } else {
+                // Show placeholder for non-TEXT media types
+                const mediaType = message.media_type || 'UNKNOWN';
+                messageContent = `
+                    <div class="text-message placeholder">
+                        [${mediaType}]
+                    </div>
+                `;
+            }
         }
         
         return `
-            <div class="message-item ${isTextMessage ? 'text-message' : 'media-message'}">
+            <div class="message-item ${isChat && message.media_type === 'TEXT' ? 'text-message' : 'media-message'}">
                 <div class="message-header" style="color: ${senderColor}">
                     ${senderName}
                 </div>
-                <div class="message-content ${isTextMessage ? 'text-type' : 'media-type'}">
-                    <div class="message-highlight ${isTextMessage ? 'text-type' : 'media-type'}" 
+                <div class="message-content ${isChat && message.media_type === 'TEXT' ? 'text-type' : 'media-type'}">
+                    <div class="message-highlight ${isChat && message.media_type === 'TEXT' ? 'text-type' : 'media-type'}" 
                          style="background-color: ${senderColor}"></div>
                     ${messageContent}
                 </div>
@@ -79,12 +147,10 @@ const ConversationComponent = (function() {
         `;
     }
     
-    function createMessageGroup(group, chatId, chatName) {
-        const messagesHtml = group.messages.map(message => {
-            const senderName = helpers.getUsername(chatName, message.isSender);
-            const senderColor = helpers.getUserColor(chatId, message.isSender);
-            return createMessageItem(message, senderName, senderColor, chatId);
-        }).join('');
+    function createMessageGroup(group, globalUsersData) {
+        const messagesHtml = group.messages.map(message => 
+            createMessageItem(message, globalUsersData)
+        ).join('');
         
         return `
             <div class="message-group">
@@ -96,10 +162,21 @@ const ConversationComponent = (function() {
         `;
     }
     
-    function renderMessages(container, messages, chatId, chatName) {
+    function renderMessages(container, messages, globalUsersData) {
+        if (!messages || messages.length === 0) {
+            container.innerHTML = `
+                <div class="messages-container">
+                    <div class="messages-inner">
+                        <div class="empty-messages">No messages to display</div>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+        
         const messageGroups = helpers.groupMessagesByDate(messages);
         const messagesHtml = messageGroups.map(group => 
-            createMessageGroup(group, chatId, chatName)
+            createMessageGroup(group, globalUsersData)
         ).join('');
         
         container.innerHTML = `
@@ -115,4 +192,4 @@ const ConversationComponent = (function() {
         createHeader,
         renderMessages
     };
-})();
+})();;
