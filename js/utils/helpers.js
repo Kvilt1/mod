@@ -4,21 +4,40 @@ const helpers = (function() {
     function getIconUrl(messageType, status) {
         const iconMap = {
             'chat-received': 'assets/icons16x17/chat-received.svg',
-            'chat-sent': 'assets/icons16x17/chat-sent.svg',
+            'chat-sent': 'assets/icons16x17/chat-opened.svg',
             'snap-received': 'assets/icons16x17/snap-received.svg',
-            'snap-sent': 'assets/icons16x17/snap-sent.svg',
+            'snap-sent': 'assets/icons16x17/snap-opened.svg',
             'video-received': 'assets/icons16x17/video-received.svg',
-            'video-sent': 'assets/icons16x17/video-sent.svg'
+            'video-sent': 'assets/icons16x17/video-opened.svg'
         };
         return iconMap[`${messageType}-${status}`] || 'assets/icons16x17/chat-received.svg';
+    }
+    
+    // Get Snapchat-style icon based on conversation data
+    function getSnapchatIcon(conversation) {
+        const kind = conversation.latest_kind || 'chat';
+        const isSender = conversation.is_sender || false;
+        const status = isSender ? 'opened' : 'received';
+        
+        // For snaps with media type
+        if (kind === 'snap' && conversation.latest_media_type) {
+            if (conversation.latest_media_type === 'VIDEO') {
+                return `assets/icons16x17/video-${status}.svg`;
+            } else {
+                return `assets/icons16x17/snap-${status}.svg`;
+            }
+        }
+        
+        // For regular messages
+        return `assets/icons16x17/${kind}-${status}.svg`;
     }
 
     // Get media icon URL for conversation view
     function getMediaIconUrl(type, isSender) {
         const iconMap = {
-            'snap-true': 'assets/icons14x/snap-sent.svg',
+            'snap-true': 'assets/icons14x/snap-opened.svg',
             'snap-false': 'assets/icons14x/snap-received.svg',
-            'video-true': 'assets/icons14x/video-sent.svg',
+            'video-true': 'assets/icons14x/video-opened.svg',
             'video-false': 'assets/icons14x/video-received.svg'
         };
         return iconMap[`${type}-${isSender}`] || 'assets/icons14x/snap-received.svg';
@@ -149,6 +168,7 @@ const helpers = (function() {
 
     return {
         getIconUrl,
+        getSnapchatIcon,
         getMediaIconUrl,
         getAvatarColor,
         getUserColor,

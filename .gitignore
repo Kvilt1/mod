@@ -1,2 +1,5 @@
-/.vscode
 /output
+/.claude
+/.vscode
+.DS_Store
+.DS_Store
