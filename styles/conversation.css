@@ -67,8 +67,8 @@
     line-height: 20px;
 }
 
-/* Gallery Button */
-.gallery-button, .media-button {
+/* Gallery and Grid Buttons */
+.gallery-button, .media-button, .grid-button {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -80,11 +80,11 @@
     transition: background-color 0.15s;
 }
 
-.gallery-button:hover, .media-button:hover {
+.gallery-button:hover, .media-button:hover, .grid-button:hover {
     background-color: #f9fafb;
 }
 
-.gallery-button.active {
+.gallery-button.active, .grid-button.active {
     background-color: #ECEFF1;
 }
 

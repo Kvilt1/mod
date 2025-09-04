@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Memo Component - WaveSurfer.js</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Updated font stack to prioritize the native system font */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        /* Custom styling for WaveSurfer waveform */
+        #waveform {
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        /* Hide the default WaveSurfer cursor */
+        #waveform wave {
+            overflow: hidden !important;
+        }
+    </style>
+    <script>
+        // Extending Tailwind CSS to include the custom design system tokens
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        // Core Colors from the Design System
+                        'chat-border': '#E1E1E1',
+                        'chat-status-text': '#333333',
+                        'brand-red': '#FF1D1D',
+                        'brand-red-light': '#FECDD0',
+                        // Backgrounds from the Design System
+                        'background-primary': '#FFFFFF',
+                        'background-pressed': '#EFEFF0',
+                    },
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background-primary flex flex-col items-center justify-center min-h-screen antialiased p-4">
+
+    <div class="w-full max-w-sm mx-auto flex flex-col items-center gap-4">
+        <!-- File Input for Audio -->
+        <div class="mb-4 text-center">
+            <label for="audio-upload" class="block text-sm font-medium text-gray-700 mb-2">
+                Upload an audio file to test:
+            </label>
+            <input type="file" id="audio-upload" accept="audio/*" class="block w-full text-sm text-gray-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-full file:border-0
+                file:text-sm file:font-semibold
+                file:bg-brand-red file:text-white
+                hover:file:bg-red-600
+                file:cursor-pointer">
+        </div>
+
+        <!-- Voice Memo Component -->
+        <div id="voice-memo-component" class="flex items-center gap-3 w-full p-2 bg-white border border-chat-border" style="border-radius: 7px;">
+            
+            <!-- 1. Play/Pause Button -->
+            <button id="play-pause-btn" class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 focus:outline-none">
+                <!-- Play Icon -->
+                <svg id="play-icon" class="h-6 w-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M6.28286 18.0425C5.03541 18.6662 4 17.7401 4 16.3113V7.68866C4 6.25987 5.03541 5.33375 6.28286 5.95747L15.3431 10.2688C16.5996 10.897 16.5996 12.103 15.3431 12.7312L6.28286 18.0425Z" fill="#FF1D1D"/>
+                </svg>
+                <!-- Pause Icon -->
+                <svg id="pause-icon" class="h-6 w-6 hidden" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="6" y="5" width="4" height="14" rx="2" fill="#FF1D1D"/>
+                    <rect x="14" y="5" width="4" height="14" rx="2" fill="#FF1D1D"/>
+                </svg>
+            </button>
+
+            <!-- 2. Waveform Display -->
+            <div id="waveform" class="flex-grow h-10"></div>
+
+            <!-- 3. Speed Button -->
+            <button id="speed-btn" class="flex h-7 w-10 items-center justify-center rounded-lg bg-background-pressed text-sm font-semibold text-chat-status-text hover:bg-gray-200 transition-colors flex-shrink-0">
+                1x
+            </button>
+            
+            <!-- 4. Duration Text -->
+            <span id="duration-display" class="text-sm font-medium text-chat-status-text tabular-nums w-10 text-right">0:00</span>
+        </div>
+
+        <!-- Loading indicator -->
+        <div id="loading-indicator" class="hidden text-sm text-gray-500">Processing audio...</div>
+    </div>
+
+    <!-- Load WaveSurfer.js from CDN -->
+    <script type="module">
+        import WaveSurfer from 'https://cdn.jsdelivr.net/npm/wavesurfer.js@7/dist/wavesurfer.esm.js';
+
+        // --- Component Elements ---
+        const audioUpload = document.getElementById('audio-upload');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        const speedBtn = document.getElementById('speed-btn');
+        const durationDisplay = document.getElementById('duration-display');
+        const loadingIndicator = document.getElementById('loading-indicator');
+
+        // --- State Management ---
+        let wavesurfer = null;
+        const speeds = [1, 1.5, 2];
+        let currentSpeedIndex = 0;
+
+        // --- Helper Functions ---
+        
+        /**
+         * Formats time in seconds to MM:SS format
+         */
+        function formatTime(seconds) {
+            if (isNaN(seconds) || seconds === Infinity) return '0:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        /**
+         * Initialize WaveSurfer with demo or uploaded audio
+         */
+        function initWaveSurfer(url) {
+            // Destroy existing instance if it exists
+            if (wavesurfer) {
+                wavesurfer.destroy();
+            }
+
+            // Show loading indicator
+            loadingIndicator.classList.remove('hidden');
+
+            // Create new WaveSurfer instance
+            wavesurfer = WaveSurfer.create({
+                container: '#waveform',
+                waveColor: '#FECDD0',  // brand-red-light
+                progressColor: '#FF1D1D',  // brand-red
+                cursorColor: 'transparent',  // Hide cursor
+                barWidth: 2,
+                barGap: 1,
+                barRadius: 1,
+                responsive: true,
+                height: 40,
+                normalize: true,
+                interact: true,
+                url: url,
+                // Use MediaElement backend for better compatibility with various formats
+                backend: 'MediaElement',
+                mediaControls: false,
+            });
+
+            // Event handlers
+            wavesurfer.on('ready', () => {
+                loadingIndicator.classList.add('hidden');
+                const duration = wavesurfer.getDuration();
+                durationDisplay.textContent = formatTime(duration);
+            });
+
+            wavesurfer.on('play', () => {
+                playIcon.classList.add('hidden');
+                pauseIcon.classList.remove('hidden');
+            });
+
+            wavesurfer.on('pause', () => {
+                playIcon.classList.remove('hidden');
+                pauseIcon.classList.add('hidden');
+            });
+
+            wavesurfer.on('finish', () => {
+                playIcon.classList.remove('hidden');
+                pauseIcon.classList.add('hidden');
+                wavesurfer.seekTo(0);
+                durationDisplay.textContent = formatTime(wavesurfer.getDuration());
+            });
+
+            wavesurfer.on('audioprocess', () => {
+                const remaining = wavesurfer.getDuration() - wavesurfer.getCurrentTime();
+                durationDisplay.textContent = formatTime(remaining);
+            });
+
+            wavesurfer.on('seeking', () => {
+                const remaining = wavesurfer.getDuration() - wavesurfer.getCurrentTime();
+                durationDisplay.textContent = formatTime(remaining);
+            });
+
+            wavesurfer.on('error', (error) => {
+                console.error('WaveSurfer error:', error);
+                loadingIndicator.textContent = 'Error loading audio';
+                loadingIndicator.classList.remove('hidden');
+            });
+        }
+
+        /**
+         * Create demo audio
+         */
+        async function createDemoAudio() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const sampleRate = audioContext.sampleRate;
+            const duration = 2;
+            const buffer = audioContext.createBuffer(1, sampleRate * duration, sampleRate);
+            const channelData = buffer.getChannelData(0);
+            
+            // Generate a more interesting demo sound
+            for (let i = 0; i < channelData.length; i++) {
+                const t = i / sampleRate;
+                
+                // Multiple frequency components
+                const fundamental = Math.sin(2 * Math.PI * 440 * t);
+                const harmonic1 = Math.sin(2 * Math.PI * 880 * t) * 0.3;
+                const harmonic2 = Math.sin(2 * Math.PI * 220 * t) * 0.2;
+                
+                // Dynamic envelope
+                let envelope = 0;
+                if (t < 0.3) {
+                    envelope = Math.sin(Math.PI * t / 0.3) * 0.8;
+                } else if (t < 0.6) {
+                    envelope = 0.1;
+                } else if (t < 1.0) {
+                    envelope = Math.sin(Math.PI * (t - 0.6) / 0.4) * 0.5;
+                } else if (t < 1.3) {
+                    envelope = 0.05;
+                } else if (t < 1.7) {
+                    envelope = Math.sin(Math.PI * (t - 1.3) / 0.4) * 1.0;
+                } else {
+                    envelope = (2 - t) / 0.3 * 0.3;
+                }
+                
+                channelData[i] = (fundamental + harmonic1 + harmonic2) * envelope * 0.3;
+            }
+
+            // Convert to WAV
+            const wavArrayBuffer = audioBufferToWav(buffer);
+            const blob = new Blob([wavArrayBuffer], { type: 'audio/wav' });
+            return URL.createObjectURL(blob);
+        }
+
+        /**
+         * Convert AudioBuffer to WAV
+         */
+        function audioBufferToWav(buffer) {
+            const numChannels = buffer.numberOfChannels;
+            const sampleRate = buffer.sampleRate;
+            const format = 1; // PCM
+            const bitDepth = 16;
+            const numSamples = buffer.length;
+            const dataSize = numSamples * numChannels * (bitDepth / 8);
+            const blockAlign = numChannels * (bitDepth / 8);
+            const byteRate = sampleRate * blockAlign;
+            const bufferLength = 44 + dataSize;
+
+            const arrayBuffer = new ArrayBuffer(bufferLength);
+            const view = new DataView(arrayBuffer);
+            let offset = 0;
+
+            const writeString = (str) => {
+                for (let i = 0; i < str.length; i++) {
+                    view.setUint8(offset++, str.charCodeAt(i));
+                }
+            };
+            
+            writeString('RIFF');
+            view.setUint32(offset, 36 + dataSize, true); offset += 4;
+            writeString('WAVE');
+            writeString('fmt ');
+            view.setUint32(offset, 16, true); offset += 4;
+            view.setUint16(offset, format, true); offset += 2;
+            view.setUint16(offset, numChannels, true); offset += 2;
+            view.setUint32(offset, sampleRate, true); offset += 4;
+            view.setUint32(offset, byteRate, true); offset += 4;
+            view.setUint16(offset, blockAlign, true); offset += 2;
+            view.setUint16(offset, bitDepth, true); offset += 2;
+            writeString('data');
+            view.setUint32(offset, dataSize, true); offset += 4;
+
+            const pcm = new Int16Array(numSamples);
+            const channelData = buffer.getChannelData(0);
+            for (let i = 0; i < numSamples; i++) {
+                let sample = Math.max(-1, Math.min(1, channelData[i]));
+                pcm[i] = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+            }
+
+            for (let i = 0; i < numSamples; i++) {
+                view.setInt16(offset, pcm[i], true);
+                offset += 2;
+            }
+
+            return arrayBuffer;
+        }
+
+        /**
+         * Handles play button click
+         */
+        function handlePlayPause() {
+            if (wavesurfer) {
+                wavesurfer.playPause();
+            }
+        }
+
+        /**
+         * Handles speed button click
+         */
+        function handleSpeedChange() {
+            if (!wavesurfer) return;
+            
+            currentSpeedIndex = (currentSpeedIndex + 1) % speeds.length;
+            const newSpeed = speeds[currentSpeedIndex];
+            speedBtn.textContent = `${newSpeed}x`;
+            wavesurfer.setPlaybackRate(newSpeed);
+        }
+        
+        /**
+         * Handles file upload
+         */
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Reset UI
+            playIcon.classList.remove('hidden');
+            pauseIcon.classList.add('hidden');
+            currentSpeedIndex = 0;
+            speedBtn.textContent = '1x';
+
+            // Create object URL for the file
+            const url = URL.createObjectURL(file);
+            
+            // Initialize WaveSurfer with the uploaded file
+            initWaveSurfer(url);
+        }
+
+        // --- Event Listeners ---
+        
+        audioUpload.addEventListener('change', handleFileUpload);
+        playPauseBtn.addEventListener('click', handlePlayPause);
+        speedBtn.addEventListener('click', handleSpeedChange);
+
+        // --- Initialize with demo audio on load ---
+        window.addEventListener('load', async () => {
+            try {
+                const demoUrl = await createDemoAudio();
+                initWaveSurfer(demoUrl);
+            } catch (e) {
+                console.error('Failed to create demo audio:', e);
+                loadingIndicator.textContent = 'Failed to load demo';
+                loadingIndicator.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
