@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snapchat Prerender Demo - Live Preview</title>
+    
+    <!-- Load all styles -->
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/chat.css">
+    <link rel="stylesheet" href="styles/conversation.css">
+    <link rel="stylesheet" href="styles/media.css">
+    
+    <!-- WaveSurfer.js for voice notes -->
+    <script src="https://unpkg.com/wavesurfer.js@7"></script>
+    
+    <style>
+        /* Additional styles for demo */
+        .demo-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .demo-header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .demo-header p {
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        
+        .demo-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+        
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #10b981;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .live-indicator::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: white;
+            border-radius: 50%;
+            animation: blink 1.4s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        /* Override app container for demo */
+        #app {
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <!-- Demo Header -->
+        <div class="demo-header">
+            <h1>Snapchat Prerender Demo <span class="live-indicator">LIVE PREVIEW</span></h1>
+            <p>This page automatically shows how a prerendered Snapchat export would look with all message types</p>
+        </div>
+        
+        <!-- Main App Container -->
+        <div id="app" class="app-container">
+            <!-- Chat List Container -->
+            <div id="chatList" class="chat-list-container">
+                <!-- Search Bar -->
+                <div class="search-bar">
+                    <div class="search-input-container">
+                        <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        <input type="text" placeholder="Search" class="search-input" id="searchInput">
+                    </div>
+                </div>
+                
+                <!-- Chat Items Container -->
+                <div id="chatItemsContainer" class="chat-items-container">
+                    <!-- Chat items will be dynamically generated -->
+                </div>
+            </div>
+            
+            <!-- Conversation View Container -->
+            <div id="conversationView" class="conversation-view-container">
+                <!-- Default Header -->
+                <div id="defaultHeader" class="conversation-header">
+                    <div class="header-left"></div>
+                    <div class="header-center">
+                        <div class="date-navigator">
+                            <button class="date-nav-arrow date-nav-prev disabled" disabled>
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M15 18l-6-6 6-6"/>
+                                </svg>
+                            </button>
+                            <div class="date-display">Demo Day - Today</div>
+                            <button class="date-nav-arrow date-nav-next disabled" disabled>
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 18l6-6-6-6"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="header-right">
+                        <button class="grid-button" onclick="toggleView('gallery')">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <rect x="1" y="1" width="6" height="6" rx="0.5" stroke="#16191C" stroke-opacity="0.56" stroke-width="1.5"/>
+                                <rect x="9" y="1" width="6" height="6" rx="0.5" stroke="#16191C" stroke-opacity="0.56" stroke-width="1.5"/>
+                                <rect x="1" y="9" width="6" height="6" rx="0.5" stroke="#16191C" stroke-opacity="0.56" stroke-width="1.5"/>
+                                <rect x="9" y="9" width="6" height="6" rx="0.5" stroke="#16191C" stroke-opacity="0.56" stroke-width="1.5"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Empty State (default view) -->
+                <div id="emptyState" class="empty-state">
+                    <div class="empty-state-content">
+                        <div class="empty-state-icon-wrapper">
+                            <svg class="empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z">
+                                </path>
+                            </svg>
+                        </div>
+                        <h3 class="empty-state-title">Select a conversation</h3>
+                        <p class="empty-state-description">Choose from your existing conversations to view messages</p>
+                    </div>
+                </div>
+                
+                <!-- Conversation containers will be added dynamically -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Media Viewer Modal -->
+    <div id="mediaViewerModal" class="media-viewer-modal" style="display: none;">
+        <div class="viewer-header">
+            <button class="close-button" onclick="closeMediaViewer()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M6 18L18 6M6 6l12 12" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </button>
+            <span class="media-info">Demo User • Just now</span>
+        </div>
+        <div class="viewer-content">
+            <button class="nav-prev" onclick="navigateMedia(-1)">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                    <path d="M15 18l-6-6 6-6" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </button>
+            <div class="media-display">
+                <div style="width: 600px; height: 400px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; border-radius: 8px;">
+                    Demo Media
+                </div>
+            </div>
+            <button class="nav-next" onclick="navigateMedia(1)">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                    <path d="M9 18l6-6-6-6" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </button>
+        </div>
+        <div class="viewer-controls" id="videoControls" style="display: none;">
+            <button class="play-button" onclick="togglePlayback()">▶</button>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 30%;"></div>
+            </div>
+            <span class="time-display">0:00 / 0:15</span>
+        </div>
+    </div>
+    
+    <script>
+        // Mock data generator with all message types
+        const mockData = {
+            // Global data structure matching prerenderer expectations
+            globalData: {
+                owner: 'demo_user',
+                users: {
+                    'alice_smith': {
+                        display_name: 'Alice Smith',
+                        avatar: null
+                    },
+                    'bob_johnson': {
+                        display_name: 'Bob Johnson',
+                        avatar: null
+                    },
+                    'charlie_brown': {
+                        display_name: 'Charlie Brown',
+                        avatar: null
+                    },
+                    'diana_prince': {
+                        display_name: 'Diana Prince',
+                        avatar: null
+                    },
+                    'demo_user': {
+                        display_name: 'Me',
+                        avatar: null
+                    }
+                }
+            },
+            
+            // Day data with conversations
+            dayData: {
+                date: '2024-01-15',
+                conversations: {
+                    'alice_smith': {
+                        id: 'alice_smith',
+                        participants: ['demo_user', 'alice_smith'],
+                        kind: 'chat',
+                        latest_timestamp: new Date().toISOString(),
+                        latest_media_type: 'TEXT',
+                        is_sender: false,
+                        message_count: 15
+                    },
+                    'bob_johnson': {
+                        id: 'bob_johnson',
+                        participants: ['demo_user', 'bob_johnson'],
+                        kind: 'snap',
+                        latest_timestamp: new Date(Date.now() - 3600000).toISOString(),
+                        latest_media_type: 'IMAGE',
+                        is_sender: true,
+                        message_count: 8
+                    },
+                    'charlie_brown': {
+                        id: 'charlie_brown',
+                        participants: ['demo_user', 'charlie_brown'],
+                        kind: 'snap',
+                        latest_timestamp: new Date(Date.now() - 7200000).toISOString(),
+                        latest_media_type: 'VIDEO',
+                        is_sender: false,
+                        message_count: 12
+                    },
+                    'diana_prince': {
+                        id: 'diana_prince',
+                        participants: ['demo_user', 'diana_prince'],
+                        kind: 'chat',
+                        latest_timestamp: new Date(Date.now() - 10800000).toISOString(),
+                        latest_media_type: 'NOTE',
+                        is_sender: true,
+                        message_count: 20
+                    }
+                },
+                
+                // Messages for each conversation with all types
+                messages: {
+                    'alice_smith': [
+                        // Text messages
+                        {
+                            id: 'msg_1',
+                            kind: 'chat',
+                            media_type: 'TEXT',
+                            text: 'Hey! How are you doing today?',
+                            from: 'alice_smith',
+                            is_sender: false,
+                            timestamp: new Date(Date.now() - 1800000).toISOString()
+                        },
+                        {
+                            id: 'msg_2',
+                            kind: 'chat',
+                            media_type: 'TEXT',
+                            text: "I'm doing great! Just working on the demo. This is a longer message to show how text wrapping works in the conversation view. It should wrap nicely when it exceeds a certain length.",
+                            from: 'demo_user',
+                            is_sender: true,
+                            timestamp: new Date(Date.now() - 1700000).toISOString()
+                        },
+                        {
+                            id: 'msg_3',
+                            kind: 'chat',
+                            media_type: 'TEXT',
+                            text: 'That sounds awesome! 🎉',
+                            from: 'alice_smith',
+                            is_sender: false,
+                            timestamp: new Date(Date.now() - 1600000).toISOString()
+                        },
+                        // Voice note
+                        {
+                            id: 'msg_4',
+                            kind: 'chat',
+                            media_type: 'NOTE',
+                            from: 'alice_smith',
+                            is_sender: false,
+                            timestamp: new Date(Date.now() - 1500000).toISOString(),
+                            media: ['/assets/sample-audio.mp3']
+                        },
+                        {
+                            id: 'msg_5',
+                            kind: 'chat',
+                            media_type: 'TEXT',
+                            text: 'Nice voice note! 🎵',
+                            from: 'demo_user',
+                            is_sender: true,
+                            timestamp: new Date(Date.now() - 1400000).toISOString()
+                        }
+                    ],
+                    
+                    'bob_johnson': [
+                        // Snap messages (IMAGE)
+                        {
+                            id: 'msg_6',
+                            kind: 'snap',
+                            media_type: 'IMAGE',
+                            from: 'bob_johnson',
+                            is_sender: false,
+                            timestamp: new Date(Date.now() - 4000000).toISOString()
+                        },
+                        {
+                            id: 'msg_7',
+                            kind: 'snap',
+                            media_type: 'IMAGE',
+                            from: 'demo_user',
+                            is_sender: true,
+                            timestamp: new Date(Date.now() - 3900000).toISOString()
+                        },
+                        {
+                            id: 'msg_8',
+                            kind: 'chat',
+                            media_type: 'TEXT',
+                            text: 'Cool snap! 📸',
+                            from: 'bob_johnson',
+                            is_sender: false,
+                            timestamp: new Date(Date.now() - 3800000).toISOString()
+                        },
+                        {
+                            id: 'msg_9',
+                            kind: 'snap',
+                            media_type: 'IMAGE',
+                            from: 'bob_johnson',
+                            is_sender: false,
+                            timestamp: new Date(Date.now() - 3700000).toISOString()
+                        },
+                        {
+                            id: 'msg_10',
+                            kind: 'chat',
+                            media_type: 'TEXT',
+                            text: 'Thanks! Here\'s another one',
+                            from: 'demo_user',
+                            is_sender: true,
+                            timestamp: new Date(Date.now() - 3600000).toISOString()
+                        }
+                    ],
+                    
+                    'charlie_brown': [
+                        // Video snaps
+                        {
+                            id: 'msg_11',
+                            kind: 'snap',
+                            media_type: 'VIDEO',
+                            from: 'charlie_brown',
+                            is_sender: false,
+                            timestamp: new Date(Date.now() - 8000000).toISOString()
+                        },
+                        {
+                            id: 'msg_12',
+                            kind: 'chat',
+                            media_type: 'TEXT',
+                            text: 'Check out this video!',
+                            from: 'charlie_brown',
+                            is_sender: false,
+                            timestamp: new Date(Date.now() - 7900000).toISOString()
+                        },
+                        {
+                            id: 'msg_13',
+                            kind: 'snap',
+                            media_type: 'VIDEO',
+                            from: 'demo_user',
+                            is_sender: true,
+                            timestamp: new Date(Date.now() - 7800000).toISOString()
+                        },
+                        {
+                            id: 'msg_14',
+                            kind: 'chat',
+                            media_type: 'TEXT',
+                            text: 'Awesome video! 🎬',
+                            from: 'demo_user',
+                            is_sender: true,
+                            timestamp: new Date(Date.now() - 7700000).toISOString()
+                        },
+                        // Mixed media
+                        {
+                            id: 'msg_15',
+                            kind: 'snap',
+                            media_type: 'IMAGE',
+                            from: 'charlie_brown',
+                            is_sender: false,
+                            timestamp: new Date(Date.now() - 7600000).toISOString()
+                        }
+                    ],
+                    
+                    'diana_prince': [
+                        // Voice notes and mixed content
+                        {
+                            id: 'msg_16',
+                            kind: 'chat',
+                            media_type: 'TEXT',
+                            text: 'Hey Diana! Listen to this:',
+                            from: 'demo_user',
+                            is_sender: true,
+                            timestamp: new Date(Date.now() - 11000000).toISOString()
+                        },
+                        {
+                            id: 'msg_17',
+                            kind: 'chat',
+                            media_type: 'NOTE',
+                            from: 'demo_user',
+                            is_sender: true,
+                            timestamp: new Date(Date.now() - 10900000).toISOString(),
+                            media: ['/assets/sample-audio.mp3']
+                        },
+                        {
+                            id: 'msg_18',
+                            kind: 'chat',
+                            media_type: 'TEXT',
+                            text: 'That\'s amazing! Let me send you one back',
+                            from: 'diana_prince',
+                            is_sender: false,
+                            timestamp: new Date(Date.now() - 10850000).toISOString()
+                        },
+                        {
+                            id: 'msg_19',
+                            kind: 'chat',
+                            media_type: 'NOTE',
+                            from: 'diana_prince',
+                            is_sender: false,
+                            timestamp: new Date(Date.now() - 10820000).toISOString(),
+                            media: ['/assets/sample-audio.mp3']
+                        },
+                        // Unknown media type placeholder
+                        {
+                            id: 'msg_20',
+                            kind: 'chat',
+                            media_type: 'STICKER',
+                            from: 'diana_prince',
+                            is_sender: false,
+                            timestamp: new Date(Date.now() - 10800000).toISOString()
+                        }
+                    ]
+                }
+            }
+        };
+        
+        // Prerender functions (adapted from prerenderer.js)
+        const userColorCache = {};
+        const SIGNATURE_RED = '#FF453A';
+        const ASSETS_PATH = 'assets';
+        
+        function generateUserColor(username) {
+            if (userColorCache[username]) {
+                return userColorCache[username];
+            }
+            
+            let hash = 0;
+            for (let i = 0; i < username.length; i++) {
+                hash = ((hash << 5) - hash) + username.charCodeAt(i);
+                hash = hash & hash;
+            }
+            
+            const hueRanges = [
+                [0, 20], [20, 45], [45, 65], [160, 200],
+                [200, 260], [260, 290], [290, 330], [330, 360]
+            ];
+            
+            const rangeIndex = Math.abs(hash) % hueRanges.length;
+            const [minHue, maxHue] = hueRanges[rangeIndex];
+            const hue = minHue + (Math.abs(hash) % (maxHue - minHue));
+            const saturation = 65 + (Math.abs(hash >> 8) % 20);
+            const lightness = 45 + (Math.abs(hash >> 16) % 15);
+            
+            const color = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+            userColorCache[username] = color;
+            return color;
+        }
+        
+        function getUserColor(username, isSender) {
+            return isSender ? SIGNATURE_RED : generateUserColor(username);
+        }
+        
+        function formatMilitaryTime(timestamp) {
+            const date = new Date(timestamp);
+            const hours = date.getHours();
+            const minutes = date.getMinutes().toString().padStart(2, '0');
+            return `${hours}:${minutes}`;
+        }
+        
+        function getSnapchatIcon(conversation) {
+            const kind = conversation.kind;
+            const status = conversation.is_sender ? 'opened' : 'received';
+            
+            if (kind === 'chat') {
+                return `${ASSETS_PATH}/icons16x17/chat-${status}.svg`;
+            }
+            
+            if (kind === 'snap' && conversation.latest_media_type) {
+                if (conversation.latest_media_type === 'VIDEO') {
+                    return `${ASSETS_PATH}/icons16x17/video-${status}.svg`;
+                } else {
+                    return `${ASSETS_PATH}/icons16x17/snap-${status}.svg`;
+                }
+            }
+            
+            return `${ASSETS_PATH}/icons16x17/snap-${status}.svg`;
+        }
+        
+        function getMediaIconUrl(mediaType, isSender) {
+            if (mediaType === 'VIDEO' || mediaType === 'video') {
+                return isSender ? `${ASSETS_PATH}/icons14x/video-opened.svg` : `${ASSETS_PATH}/icons14x/video-received.svg`;
+            } else {
+                return isSender ? `${ASSETS_PATH}/icons14x/snap-opened.svg` : `${ASSETS_PATH}/icons14x/snap-received.svg`;
+            }
+        }
+        
+        function createDefaultAvatar(name) {
+            const color = generateUserColor(name);
+            const initials = name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase() || name[0].toUpperCase();
+            
+            return `
+                <div style="width: 52px; height: 52px; background: ${color}; border-radius: 50%; 
+                            display: flex; align-items: center; justify-content: center; 
+                            color: white; font-weight: 600; font-size: 18px;">
+                    ${initials}
+                </div>
+            `;
+        }
+        
+        function createChatItem(conversationId, conversation, globalData) {
+            let displayName = conversationId;
+            let avatarHtml = '';
+            
+            const otherUser = conversation.participants?.find(p => p !== globalData.owner) || conversationId;
+            if (globalData.users[otherUser]) {
+                displayName = globalData.users[otherUser].display_name || otherUser;
+            }
+            avatarHtml = createDefaultAvatar(displayName);
+            
+            const iconUrl = getSnapchatIcon(conversation);
+            const militaryTime = formatMilitaryTime(conversation.latest_timestamp);
+            
+            return `
+                <div class="chat-item" data-conversation="${conversationId}" onclick="selectConversation('${conversationId}')">
+                    <div class="user-avatar">
+                        ${avatarHtml}
+                    </div>
+                    <div class="chat-content">
+                        <div class="chat-name">${displayName}</div>
+                        <div class="chat-status">
+                            <div class="chat-status-content">
+                                <img src="${iconUrl}" class="status-icon" alt="status">
+                                <span class="status-text">${conversation.is_sender ? 'Opened' : 'Received'}</span>
+                                <span class="status-separator">·</span>
+                                <span class="status-time">${militaryTime}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function formatDateSeparator(timestamp) {
+            const date = new Date(timestamp);
+            const today = new Date();
+            const diffDays = Math.floor((today - date) / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 0) return 'Today';
+            if (diffDays === 1) return 'Yesterday';
+            
+            const options = { weekday: 'long', month: 'short', day: 'numeric' };
+            return date.toLocaleDateString('en-US', options);
+        }
+        
+        function createMessageItem(message, globalData) {
+            const isSnap = message.kind === 'snap';
+            const isChat = message.kind === 'chat';
+            const isSender = message.is_sender || false;
+            
+            let senderName = isSender ? 'Me' : message.from;
+            let senderColor = getUserColor(message.from, isSender);
+            
+            if (!isSender && globalData.users && globalData.users[message.from]) {
+                const userData = globalData.users[message.from];
+                senderName = userData.display_name || message.from;
+            }
+            
+            let messageContent = '';
+            
+            if (isSnap) {
+                const mediaType = message.media_type || 'IMAGE';
+                const iconUrl = getMediaIconUrl(mediaType, isSender);
+                const status = 'Opened';
+                
+                messageContent = `
+                    <div class="media-message-box">
+                        <img src="${iconUrl}" alt="${mediaType} ${isSender ? 'sent' : 'received'}" 
+                             class="media-message-icon">
+                        <span class="media-message-text">${status}</span>
+                    </div>
+                `;
+            } else if (isChat) {
+                if (message.media_type === 'TEXT' && message.text) {
+                    const shouldWrap = message.text.length > 50;
+                    messageContent = `
+                        <div class="text-message ${shouldWrap ? 'wrapped' : ''}">
+                            ${message.text}
+                        </div>
+                    `;
+                } else if (message.media_type === 'NOTE') {
+                    const uniqueId = message.id.replace(/[^a-zA-Z0-9]/g, '_');
+                    messageContent = `
+                        <div class="voice-note-demo" style="display: flex; align-items: center; gap: 12px; width: 300px; padding: 8px; background: white; border: 1px solid #E1E1E1; border-radius: 7px;">
+                            <button style="width: 32px; height: 32px; border-radius: 50%; background: #FF1D1D; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                                    <path d="M8 5v14l11-7z"/>
+                                </svg>
+                            </button>
+                            <div style="flex: 1; height: 2px; background: #E1E1E1; border-radius: 1px; position: relative;">
+                                <div style="position: absolute; left: 0; top: 0; height: 100%; width: 35%; background: #FF1D1D; border-radius: 1px;"></div>
+                            </div>
+                            <span style="font-size: 12px; color: #666;">0:${Math.floor(Math.random() * 30 + 10)}</span>
+                        </div>
+                    `;
+                } else {
+                    const mediaType = message.media_type || 'UNKNOWN';
+                    messageContent = `
+                        <div class="text-message placeholder">
+                            [${mediaType}]
+                        </div>
+                    `;
+                }
+            }
+            
+            return `
+                <div class="message-item ${isChat && message.media_type === 'TEXT' ? 'text-message' : 'media-message'}">
+                    <div class="message-header" style="color: ${senderColor}">
+                        ${senderName}
+                    </div>
+                    <div class="message-content ${isChat && message.media_type === 'TEXT' ? 'text-type' : 'media-type'}">
+                        <div class="message-highlight ${isChat && message.media_type === 'TEXT' ? 'text-type' : 'media-type'}" 
+                             style="background-color: ${senderColor}"></div>
+                        ${messageContent}
+                    </div>
+                </div>
+            `;
+        }
+        
+        function groupMessagesByDate(messages) {
+            const groups = [];
+            let currentGroup = null;
+            
+            messages.forEach(message => {
+                const date = formatDateSeparator(message.timestamp);
+                
+                if (!currentGroup || currentGroup.date !== date) {
+                    currentGroup = {
+                        date: date,
+                        messages: []
+                    };
+                    groups.push(currentGroup);
+                }
+                
+                currentGroup.messages.push(message);
+            });
+            
+            return groups;
+        }
+        
+        function createMessagesHTML(messages, globalData) {
+            if (!messages || messages.length === 0) {
+                return '<div class="empty-messages">No messages to display</div>';
+            }
+            
+            const messageGroups = groupMessagesByDate(messages);
+            const messagesHtml = messageGroups.map(group => {
+                const groupMessagesHtml = group.messages.map(message => 
+                    createMessageItem(message, globalData)
+                ).join('\n');
+                
+                return `
+                    <div class="message-group">
+                        <div class="date-separator">${group.date}</div>
+                        <div class="message-group-messages">
+                            ${groupMessagesHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('\n');
+            
+            return messagesHtml;
+        }
+        
+        function generateMockGalleryThumbnails(conversationId) {
+            const thumbnailCount = 18;
+            let thumbnailsHtml = '';
+            
+            for (let i = 0; i < thumbnailCount; i++) {
+                const isVideo = (i % 3 === 0 || i % 5 === 0) && i !== 0;
+                const duration = isVideo ? (15 + (i * 3) % 45) : 0;
+                
+                thumbnailsHtml += `
+                    <div class="gallery-thumbnail" data-index="${i}" data-type="${isVideo ? 'video' : 'image'}" onclick="openMediaViewer('${conversationId}', ${i}, '${isVideo ? 'video' : 'image'}')">
+                        <div class="thumbnail-placeholder ${isVideo ? 'video-type' : 'image-type'}" style="background: linear-gradient(135deg, hsl(${i * 20}, 70%, 60%) 0%, hsl(${i * 20 + 60}, 70%, 50%) 100%);">
+                            ${isVideo ? `
+                                <div class="video-duration">${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')}</div>
+                                <div class="video-play-overlay">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                                        <path d="M8 5v14l11-7z"/>
+                                    </svg>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            return thumbnailsHtml;
+        }
+        
+        // Initialize the demo
+        let currentConversation = null;
+        let currentView = 'messages';
+        
+        function initializeDemo() {
+            const chatItemsContainer = document.getElementById('chatItemsContainer');
+            const conversationView = document.getElementById('conversationView');
+            
+            // Generate chat items
+            let chatItemsHtml = '';
+            for (const [convId, conversation] of Object.entries(mockData.dayData.conversations)) {
+                chatItemsHtml += createChatItem(convId, conversation, mockData.globalData);
+            }
+            chatItemsContainer.innerHTML = chatItemsHtml;
+            
+            // Generate conversation containers
+            for (const [convId, conversation] of Object.entries(mockData.dayData.conversations)) {
+                const messages = mockData.dayData.messages[convId] || [];
+                const messagesHtml = createMessagesHTML(messages, mockData.globalData);
+                const galleryHtml = generateMockGalleryThumbnails(convId);
+                
+                const otherUser = conversation.participants?.find(p => p !== mockData.globalData.owner) || convId;
+                const displayName = mockData.globalData.users[otherUser]?.display_name || otherUser;
+                const avatarHtml = createDefaultAvatar(displayName);
+                
+                const convDiv = document.createElement('div');
+                convDiv.id = `conversation-${convId}`;
+                convDiv.className = 'conversation-content';
+                convDiv.style.display = 'none';
+                convDiv.innerHTML = `
+                    <!-- Conversation Header -->
+                    <div class="conversation-header">
+                        <div class="header-left">
+                            <button class="back-button" onclick="deselectConversation()">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                    <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                            </button>
+                            <div class="user-avatar" style="width: 40px; height: 40px;">
+                                ${avatarHtml.replace('52px', '40px').replace('52px', '40px').replace('font-size: 18px', 'font-size: 14px')}
+                            </div>
+                            <div class="user-info">
+                                <div class="user-name">${displayName}</div>
+                            </div>
+                        </div>
+                        <div class="header-center"></div>
+                        <div class="header-right">
+                            <button class="grid-button" onclick="toggleView('${convId}')">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <rect x="1" y="1" width="6" height="6" rx="0.5" stroke="#16191C" stroke-opacity="0.56" stroke-width="1.5"/>
+                                    <rect x="9" y="1" width="6" height="6" rx="0.5" stroke="#16191C" stroke-opacity="0.56" stroke-width="1.5"/>
+                                    <rect x="1" y="9" width="6" height="6" rx="0.5" stroke="#16191C" stroke-opacity="0.56" stroke-width="1.5"/>
+                                    <rect x="9" y="9" width="6" height="6" rx="0.5" stroke="#16191C" stroke-opacity="0.56" stroke-width="1.5"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Messages View -->
+                    <div class="messages-view" id="messages-${convId}">
+                        <div class="messages-container">
+                            ${messagesHtml}
+                        </div>
+                    </div>
+                    
+                    <!-- Gallery View -->
+                    <div class="gallery-view" id="gallery-${convId}" style="display: none;">
+                        <div class="gallery-container">
+                            <div class="gallery-grid">
+                                ${galleryHtml}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                conversationView.appendChild(convDiv);
+            }
+        }
+        
+        function selectConversation(conversationId) {
+            // Hide empty state and default header
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('defaultHeader').style.display = 'none';
+            
+            // Hide all conversations
+            document.querySelectorAll('.conversation-content').forEach(conv => {
+                conv.style.display = 'none';
+            });
+            
+            // Show selected conversation
+            const selectedConv = document.getElementById(`conversation-${conversationId}`);
+            if (selectedConv) {
+                selectedConv.style.display = 'block';
+            }
+            
+            // Update active state in chat list
+            document.querySelectorAll('.chat-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelector(`[data-conversation="${conversationId}"]`)?.classList.add('active');
+            
+            currentConversation = conversationId;
+            currentView = 'messages';
+        }
+        
+        function deselectConversation() {
+            // Show empty state and default header
+            document.getElementById('emptyState').style.display = 'flex';
+            document.getElementById('defaultHeader').style.display = 'flex';
+            
+            // Hide all conversations
+            document.querySelectorAll('.conversation-content').forEach(conv => {
+                conv.style.display = 'none';
+            });
+            
+            // Remove active state
+            document.querySelectorAll('.chat-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            currentConversation = null;
+        }
+        
+        function toggleView(conversationId) {
+            if (!conversationId || conversationId === 'gallery') {
+                return;
+            }
+            
+            const messagesView = document.getElementById(`messages-${conversationId}`);
+            const galleryView = document.getElementById(`gallery-${conversationId}`);
+            
+            if (currentView === 'messages') {
+                messagesView.style.display = 'none';
+                galleryView.style.display = 'block';
+                currentView = 'gallery';
+            } else {
+                messagesView.style.display = 'block';
+                galleryView.style.display = 'none';
+                currentView = 'messages';
+            }
+        }
+        
+        function openMediaViewer(conversationId, index, type) {
+            const modal = document.getElementById('mediaViewerModal');
+            modal.style.display = 'flex';
+            
+            // Update controls based on type
+            const videoControls = document.getElementById('videoControls');
+            if (type === 'video') {
+                videoControls.style.display = 'flex';
+            } else {
+                videoControls.style.display = 'none';
+            }
+        }
+        
+        function closeMediaViewer() {
+            document.getElementById('mediaViewerModal').style.display = 'none';
+        }
+        
+        function navigateMedia(direction) {
+            console.log('Navigating media:', direction);
+        }
+        
+        function togglePlayback() {
+            console.log('Toggle playback');
+        }
+        
+        // Search functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeDemo();
+            
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', function(e) {
+                const searchTerm = e.target.value.toLowerCase();
+                document.querySelectorAll('.chat-item').forEach(item => {
+                    const name = item.querySelector('.chat-name').textContent.toLowerCase();
+                    if (name.includes(searchTerm)) {
+                        item.style.display = 'flex';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            });
+        });
+        
+        // Auto-refresh to simulate live preview
+        let lastModified = Date.now();
+        
+        function checkForUpdates() {
+            // In a real implementation, this would check if prerenderer.js or related files have changed
+            // For demo purposes, we'll just log that it's checking
+            console.log('Checking for prerender updates...', new Date().toLocaleTimeString());
+            
+            // Simulate detecting a change occasionally
+            if (Math.random() < 0.01) { // 1% chance per check
+                console.log('Prerender update detected! Refreshing preview...');
+                // In reality, you'd reload the specific changed parts
+                // For demo, we'll just flash the live indicator
+                const indicator = document.querySelector('.live-indicator');
+                if (indicator) {
+                    indicator.style.background = '#ef4444';
+                    setTimeout(() => {
+                        indicator.style.background = '#10b981';
+                    }, 500);
+                }
+            }
+        }
+        
+        // Check for updates every 2 seconds
+        setInterval(checkForUpdates, 2000);
+        
+        // Log that the demo is running
+        console.log('%c🚀 Snapchat Prerender Demo is running in LIVE PREVIEW mode', 'color: #10b981; font-size: 14px; font-weight: bold;');
+        console.log('%cThis page automatically reflects how a prerendered site would look', 'color: #666; font-size: 12px;');
+        console.log('%cAll message types are demonstrated: TEXT, IMAGE, VIDEO, NOTE (voice), and UNKNOWN', 'color: #666; font-size: 12px;');
+    </script>
+</body>
+</html>
